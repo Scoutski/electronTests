@@ -2,44 +2,59 @@
 
 var lazy = require('lazy');
 var fs = require('fs');
+var PouchDB = require('pouchdb');
+var db = new PouchDB((__dirname + '/data/hsdb'), { adapter: 'leveldb' })
+var currentProfile;
 
-var path = __dirname + '/data/file.txt';
-var fileData;
+console.log(__dirname + '/data/hsdb');
 
-var readFile = function() {
-  document.getElementsByClassName('fileContent')[0].innerHTML = "";
-  if (fs.existsSync(path)) {
-    console.log('Found file');
-    new lazy(fs.createReadStream(__dirname + '/data/file.txt'))
-      .lines
-      .forEach(function(line) {
-        if (line) {
-          console.log(line.toString());
-          var contentDiv = document.getElementsByClassName('fileContent')[0];
-          contentDiv.innerHTML = contentDiv.innerHTML + (line.toString() ) + "<br>";
-        } else {
-          console.log('file is empty');
-        };
-      });
-  } else {
-    console.log('no file found');
-  };
+var addComment = function(comment) {
+  if (currentProfile) {
+    db.post({
+      profile: currentProfile,
+      text: comment,
+    });
+  }
 };
+
+var addProfile = function(name) {
+  db.post({
+    id: name
+  });
+};
+
+// for (var i = min; i<=max; i++){
+//   var opt = document.createElement('option');
+//   opt.value = i;
+//   opt.innerHTML = i;
+//   select.appendChild(opt);
+// }
+
+db.changes({
+  live: true,
+  include_docs: true
+}).on('change', function(change) {
+  if (!change.doc.text) return;
+  db.allDocs({include_docs: true, descending: true}, function(err, doc) {
+    console.log(doc.rows);
+  });
+});
 
 var textField = document.getElementsByClassName('inputField')[0];
 
 textField.addEventListener("keydown", function(e) {
-  var data = (this.value + '\n');
+  var data = (this.value);
   if(e.keyCode == 13 && (this.value !== "")) {
-    fs.appendFile(path, data, function(error) {
-      if (error) {
-        console.error("write error:  " + error.message);
-      } else {
-        console.log(data + " was successfully written to " + path);
-      };
-    });
-    readFile();
+    addComment(data);
   };
 });
 
-readFile();
+var addProfileButton = document.getElementsByClassName('addProfileButton')[0];
+
+addProfileButton.addEventListener('click', function(event) {
+  event.preventDefault();
+  var profileName = prompt("Please enter a profile name", "Enter profile name...");
+  if (profileName != null) {
+    addProfile(profileName);
+  }
+}, false);
